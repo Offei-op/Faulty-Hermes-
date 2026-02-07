@@ -1,20 +1,55 @@
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
 
-export default function App() {
+import { AuthProvider, useAuth } from './src/context/AuthContext';
+import LoginScreen from './src/auth/LoginScreen';
+import SignupScreen from './src/auth/SignupScreen';
+import LanguageSelectScreen from './src/screens/LanguageSelectScreen';
+import TabNavigator from './src/navigation/TabNavigator';
+
+const Stack = createNativeStackNavigator();
+
+function RootNavigator() {
+  const { user, userProfile, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }}>
+        <ActivityIndicator size="large" color="#7cc950" />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#f5f5f5' } }}>
+      {user ? (
+        // App Stack
+        !userProfile?.targetLanguage ? (
+          <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} />
+        ) : (
+          <Stack.Screen name="MainTabs" component={TabNavigator} />
+        )
+      ) : (
+        // Auth Stack
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+        </>
+      )}
+    </Stack.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default function App() {
+  return (
+    <AuthProvider>
+      <NavigationContainer>
+        <StatusBar style="dark" />
+        <RootNavigator />
+      </NavigationContainer>
+    </AuthProvider>
+  );
+}
