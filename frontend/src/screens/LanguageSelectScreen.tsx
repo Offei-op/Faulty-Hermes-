@@ -30,6 +30,7 @@ export default function LanguageSelectScreen() {
                 nativeLanguage,
                 targetLanguage,
             }, { merge: true });
+            // Once updated, the AuthContext listener in App.tsx will navigate to MainTabs
         } catch (error: any) {
             Alert.alert('Error', 'Failed to save languages: ' + error.message);
         } finally {
@@ -47,49 +48,50 @@ export default function LanguageSelectScreen() {
     );
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
-            >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.brand}>FAULTYHERMES</Text>
-                </View>
+        <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+                <Text style={styles.brand}>FAULTYHERMES</Text>
+            </View>
 
-                {/* Card */}
+            <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.card}>
                     <Text style={styles.title}>Select Your Languages</Text>
                     <Text style={styles.subtitle}>Let's personalize your learning experience</Text>
 
-                    <Text style={styles.sectionTitle}>I speak:</Text>
-                    <View style={styles.optionsContainer}>
-                        {languages.map(lang => (
-                            <LanguageButton
-                                key={`native-${lang}`}
-                                lang={lang}
-                                selected={nativeLanguage === lang}
-                                onSelect={setNativeLanguage}
-                            />
-                        ))}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>I speak:</Text>
+                        <View style={styles.optionsGrid}>
+                            {languages.map(lang => (
+                                <LanguageButton
+                                    key={`native-${lang}`}
+                                    lang={lang}
+                                    selected={nativeLanguage === lang}
+                                    onSelect={setNativeLanguage}
+                                />
+                            ))}
+                        </View>
                     </View>
 
-                    <Text style={styles.sectionTitle}>I want to learn:</Text>
-                    <View style={styles.optionsContainer}>
-                        {languages.map(lang => (
-                            <LanguageButton
-                                key={`target-${lang}`}
-                                lang={lang}
-                                selected={targetLanguage === lang}
-                                onSelect={setTargetLanguage}
-                            />
-                        ))}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>I want to learn:</Text>
+                        <View style={styles.optionsGrid}>
+                            {languages.map(lang => (
+                                <LanguageButton
+                                    key={`target-${lang}`}
+                                    lang={lang}
+                                    selected={targetLanguage === lang}
+                                    onSelect={setTargetLanguage}
+                                />
+                            ))}
+                        </View>
                     </View>
 
-                    <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
+                    <TouchableOpacity
+                        style={[styles.saveButton, loading && styles.buttonDisabled]}
+                        onPress={handleSave}
+                        disabled={loading}
+                    >
                         {loading ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
@@ -98,7 +100,7 @@ export default function LanguageSelectScreen() {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
-        </KeyboardAvoidingView>
+        </View>
     );
 }
 
@@ -107,91 +109,102 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f5f5f5',
     },
-    scrollContent: {
-        flexGrow: 1,
-    },
     header: {
         backgroundColor: '#1a2a3a',
-        paddingVertical: 20,
+        paddingVertical: 15,
         paddingHorizontal: 20,
         borderBottomWidth: 3,
         borderBottomColor: '#7cc950',
     },
     brand: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: 'bold',
         color: '#7cc950',
         letterSpacing: 1,
     },
+    scrollContent: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        padding: 20,
+    },
     card: {
         backgroundColor: '#fff',
-        margin: 20,
-        marginTop: 30,
-        padding: 25,
-        borderRadius: 16,
+        padding: 30,
+        borderRadius: 24,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowRadius: 20,
+        elevation: 10,
     },
     title: {
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: 'bold',
         color: '#333',
         textAlign: 'center',
         marginBottom: 8,
     },
     subtitle: {
-        fontSize: 14,
+        fontSize: 15,
         color: '#666',
         textAlign: 'center',
+        marginBottom: 35,
+    },
+    section: {
         marginBottom: 25,
     },
     sectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 18,
+        fontWeight: 'bold',
         color: '#333',
-        marginTop: 15,
-        marginBottom: 12,
+        marginBottom: 15,
     },
-    optionsContainer: {
+    optionsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        marginBottom: 10,
+        marginHorizontal: -5,
     },
     option: {
-        paddingVertical: 10,
-        paddingHorizontal: 18,
-        borderRadius: 20,
+        paddingVertical: 12,
+        paddingHorizontal: 22,
+        borderRadius: 25,
         borderWidth: 1,
-        borderColor: '#ddd',
-        margin: 4,
+        borderColor: '#eee',
+        margin: 5,
         backgroundColor: '#fff',
     },
     optionSelected: {
-        backgroundColor: '#7cc950',
-        borderColor: '#7cc950',
+        backgroundColor: '#86cc52',
+        borderColor: '#86cc52',
     },
     optionText: {
-        color: '#333',
-        fontSize: 14,
+        color: '#666',
+        fontSize: 15,
+        fontWeight: '500',
     },
     optionTextSelected: {
         color: '#fff',
         fontWeight: 'bold',
     },
     saveButton: {
-        backgroundColor: '#7cc950',
-        padding: 15,
-        borderRadius: 8,
+        backgroundColor: '#86cc52',
+        padding: 18,
+        borderRadius: 12,
         alignItems: 'center',
-        marginTop: 25,
+        marginTop: 30,
+        shadowColor: '#86cc52',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    buttonDisabled: {
+        opacity: 0.7,
     },
     saveButtonText: {
         color: '#fff',
         fontWeight: 'bold',
-        fontSize: 16,
-        letterSpacing: 1,
+        fontSize: 18,
+        letterSpacing: 1.5,
     },
 });
