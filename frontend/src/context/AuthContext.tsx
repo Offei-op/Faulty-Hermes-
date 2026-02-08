@@ -9,6 +9,7 @@ export interface UserProfile {
     displayName: string;
     nativeLanguage: string;
     targetLanguage: string;
+    friends: string[];
     learningProgress: { streak: number; wordsLearned: number };
 }
 
@@ -46,6 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: 'Guest User',
             nativeLanguage: 'English',
             targetLanguage: 'Spanish',
+            friends: [],
             learningProgress: { streak: 5, wordsLearned: 150 }
         };
         setUser(mockUser);
@@ -54,29 +56,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
-        let unsubscribeSnapshot: () => void;
+        let unsubscribeSnapshot: (() => void) | undefined;
 
         const unsubscribeAuth = onAuthStateChanged(auth, (usr) => {
             if (user && user.uid === 'guest-123') return; // Don't override guest session
 
             setUser(usr);
             if (usr) {
+                // User logged in - fetch their profile from Firestore
                 setLoading(true);
                 const userDocRef = doc(db, 'users', usr.uid);
 
-                unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        setUserProfile(docSnap.data() as UserProfile);
-                    } else {
-                        console.log("No user profile found for", usr.uid);
-                        setUserProfile(null);
+                unsubscribeSnapshot = onSnapshot(
+                    userDocRef,
+                    (docSnap) => {
+                        if (docSnap.exists()) {
+                            setUserProfile(docSnap.data() as UserProfile);
+                        } else {
+                            console.log('No user profile found for', usr.uid);
+                            setUserProfile(null);
+                        }
+                        setLoading(false);
+                    },
+                    (error) => {
+                        console.error('Error fetching user profile:', error);
+                        setLoading(false);
                     }
-                    setLoading(false);
-                }, (error) => {
-                    console.error("Error fetching user profile:", error);
-                    setLoading(false);
-                });
+                );
             } else {
+                // User logged out
                 setUserProfile(null);
                 setLoading(false);
                 if (unsubscribeSnapshot) {

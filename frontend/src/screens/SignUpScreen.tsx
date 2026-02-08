@@ -14,12 +14,10 @@ import {
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 
-export default function SignupScreen() {
+export default function SignUpScreen() {
     const navigation = useNavigation<any>();
-    const { loginAsGuest } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [displayName, setDisplayName] = useState('');
@@ -27,7 +25,7 @@ export default function SignupScreen() {
     const [targetLanguage, setTargetLanguage] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const handleSignup = async () => {
+    const handleSignUp = async () => {
         if (!displayName || !email || !password || !nativeLanguage || !targetLanguage) {
             Alert.alert('Error', 'Please fill in all fields');
             return;
@@ -105,27 +103,29 @@ export default function SignupScreen() {
                         secureTextEntry
                     />
 
-                    <Text style={styles.label}>Native Language:</Text>
+                    <Text style={styles.label}>Native Language (e.g., en):</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="e.g., English"
+                        placeholder="en"
                         placeholderTextColor="#999"
                         value={nativeLanguage}
                         onChangeText={setNativeLanguage}
+                        autoCapitalize="none"
                     />
 
-                    <Text style={styles.label}>Target Language:</Text>
+                    <Text style={styles.label}>Target Language (e.g., fr):</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="e.g., Spanish"
+                        placeholder="fr"
                         placeholderTextColor="#999"
                         value={targetLanguage}
                         onChangeText={setTargetLanguage}
+                        autoCapitalize="none"
                     />
 
                     <TouchableOpacity
                         style={styles.button}
-                        onPress={handleSignup}
+                        onPress={handleSignUp}
                         disabled={loading}
                     >
                         {loading ? (
