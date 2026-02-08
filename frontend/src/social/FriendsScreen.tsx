@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,12 +7,59 @@ import {
     TouchableOpacity,
     KeyboardAvoidingView,
     ScrollView,
-    Platform
+    Platform,
+    ActivityIndicator
 } from 'react-native';
 import { Search, UserPlus } from 'lucide-react-native';
+import { collection, onSnapshot, query } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 export default function FriendsScreen() {
     const [searchQuery, setSearchQuery] = useState('');
+    const [users, setUsers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
+    const navigation = useNavigation<any>();
+
+    // Fetch all users from Firestore
+    useEffect(() => {
+        if (!user) return;
+
+        const usersQuery = query(collection(db, 'users'));
+        const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
+            const fetchedUsers = snapshot.docs
+                .map(doc => doc.data())
+                .filter(u => u.uid !== user.uid); // Exclude current user
+
+            setUsers(fetchedUsers);
+            setLoading(false);
+        }, (error) => {
+            console.error('Error fetching users:', error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
+
+    // Generate chatId by sorting UIDs alphabetically
+    const getChatId = (otherUserId: string) => {
+        const ids = [user.uid, otherUserId].sort();
+        return ids.join('_');
+    };
+
+    // Navigate to Chat screen
+    const handleUserPress = (otherUser: any) => {
+        const chatId = getChatId(otherUser.uid);
+        navigation.navigate('Chat', { chatId, otherUser });
+    };
+
+    // Filter users based on search query
+    const filteredUsers = users.filter(u =>
+        u.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
         <KeyboardAvoidingView
@@ -47,10 +94,41 @@ export default function FriendsScreen() {
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.emptyState}>
-                    <UserPlus size={64} color="#ccc" />
-                    <Text style={styles.emptyText}>Search for people to start learning together!</Text>
-                </View>
+                {loading ? (
+                    <View style={styles.emptyState}>
+                        <ActivityIndicator size="large" color="#7cc950" />
+                        <Text style={styles.emptyText}>Loading users...</Text>
+                    </View>
+                ) : filteredUsers.length > 0 ? (
+                    <View style={styles.usersList}>
+                        {filteredUsers.map((u) => (
+                            <TouchableOpacity
+                                key={u.uid}
+                                style={styles.userCard}
+                                onPress={() => handleUserPress(u)}
+                            >
+                                <View style={styles.userAvatar}>
+                                    <Text style={styles.userAvatarText}>
+                                        {u.displayName?.charAt(0).toUpperCase() || '?'}
+                                    </Text>
+                                </View>
+                                <View style={styles.userInfo}>
+                                    <Text style={styles.userName}>{u.displayName || 'Unknown'}</Text>
+                                    <Text style={styles.userLanguage}>
+                                        Learning {u.targetLanguage || 'N/A'}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                ) : (
+                    <View style={styles.emptyState}>
+                        <UserPlus size={64} color="#ccc" />
+                        <Text style={styles.emptyText}>
+                            {searchQuery ? 'No users found' : 'Search for people to start learning together!'}
+                        </Text>
+                    </View>
+                )}
             </ScrollView>
         </KeyboardAvoidingView>
     );
@@ -140,5 +218,47 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontSize: 16,
         width: '70%',
+    },
+    usersList: {
+        gap: 12,
+    },
+    userCard: {
+        backgroundColor: '#fff',
+        padding: 15,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    userAvatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#7cc950',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 15,
+    },
+    userAvatarText: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    userInfo: {
+        flex: 1,
+    },
+    userName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 4,
+    },
+    userLanguage: {
+        fontSize: 14,
+        color: '#666',
     },
 });

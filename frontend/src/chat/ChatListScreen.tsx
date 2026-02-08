@@ -1,14 +1,49 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { MessageSquare } from 'lucide-react-native';
-
-// Mock Data
-const CONVERSATIONS = [
-    { id: '1', name: 'Maria Garcia', lastMessage: 'Hola, ¿cómo estás?', time: '2m ago', unread: 2 },
-    { id: '2', name: 'Jean Pierre', lastMessage: 'Merci beaucoup!', time: '1h ago', unread: 0 },
-];
+import { collection, onSnapshot, query } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 export default function ChatListScreen() {
+    const [users, setUsers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
+    const navigation = useNavigation<any>();
+
+    // Fetch all users from Firestore
+    useEffect(() => {
+        if (!user) return;
+
+        const usersQuery = query(collection(db, 'users'));
+        const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
+            const fetchedUsers = snapshot.docs
+                .map(doc => doc.data())
+                .filter(u => u.uid !== user.uid); // Exclude current user
+
+            setUsers(fetchedUsers);
+            setLoading(false);
+        }, (error) => {
+            console.error('Error fetching users:', error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
+
+    // Generate chatId by sorting UIDs alphabetically
+    const getChatId = (otherUserId: string) => {
+        const ids = [user.uid, otherUserId].sort();
+        return ids.join('_');
+    };
+
+    // Navigate to Chat screen
+    const handleChatPress = (otherUser: any) => {
+        const chatId = getChatId(otherUser.uid);
+        navigation.navigate('Chat', { chatId, otherUser });
+    };
+
     return (
         <View style={styles.container}>
             {/* Header */}
@@ -19,30 +54,32 @@ export default function ChatListScreen() {
             <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
                 <Text style={styles.pageTitle}>Messages</Text>
 
-                {CONVERSATIONS.length > 0 ? (
-                    CONVERSATIONS.map(item => (
-                        <TouchableOpacity key={item.id} style={styles.chatItem}>
+                {loading ? (
+                    <View style={styles.emptyContainer}>
+                        <ActivityIndicator size="large" color="#7cc950" />
+                        <Text style={styles.emptyText}>Loading users...</Text>
+                    </View>
+                ) : users.length > 0 ? (
+                    users.map(item => (
+                        <TouchableOpacity key={item.uid} style={styles.chatItem} onPress={() => handleChatPress(item)}>
                             <View style={styles.avatar}>
-                                <Text style={styles.avatarText}>{item.name[0]}</Text>
+                                <Text style={styles.avatarText}>{item.displayName?.[0]?.toUpperCase() || '?'}</Text>
                             </View>
                             <View style={styles.chatContent}>
                                 <View style={styles.chatHeader}>
-                                    <Text style={styles.chatName}>{item.name}</Text>
-                                    <Text style={styles.chatTime}>{item.time}</Text>
+                                    <Text style={styles.chatName}>{item.displayName || 'Unknown'}</Text>
+                                    <Text style={styles.chatTime}>Click to chat</Text>
                                 </View>
-                                <Text style={styles.lastMessage} numberOfLines={1}>{item.lastMessage}</Text>
+                                <Text style={styles.lastMessage} numberOfLines={1}>
+                                    Learning {item.targetLanguage || 'N/A'}
+                                </Text>
                             </View>
-                            {item.unread > 0 && (
-                                <View style={styles.unreadBadge}>
-                                    <Text style={styles.unreadText}>{item.unread}</Text>
-                                </View>
-                            )}
                         </TouchableOpacity>
                     ))
                 ) : (
                     <View style={styles.emptyContainer}>
                         <MessageSquare size={48} color="#ccc" />
-                        <Text style={styles.emptyText}>No conversations yet</Text>
+                        <Text style={styles.emptyText}>No users yet</Text>
                     </View>
                 )}
             </ScrollView>

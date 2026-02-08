@@ -9,6 +9,7 @@ import LoginScreen from './src/auth/LoginScreen';
 import SignupScreen from './src/auth/SignupScreen';
 import LanguageSelectScreen from './src/screens/LanguageSelectScreen';
 import TabNavigator from './src/navigation/TabNavigator';
+import ChatScreen from './src/chat/ChatScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -30,7 +31,10 @@ function RootNavigator() {
         !userProfile?.targetLanguage ? (
           <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} />
         ) : (
-          <Stack.Screen name="MainTabs" component={TabNavigator} />
+          <>
+            <Stack.Screen name="MainTabs" component={TabNavigator} />
+            <Stack.Screen name="Chat" component={ChatScreen} />
+          </>
         )
       ) : (
         // Auth Stack
