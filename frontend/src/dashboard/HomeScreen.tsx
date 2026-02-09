@@ -1,23 +1,50 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from 'firebase/auth';
-import { auth } from '../config/firebase';
-
-// Mock Data
-const LEARNING_PARTNERS = [
-    { id: '1', name: 'Henry', lang: 'Spanish' },
-    { id: '2', name: 'hendrix_llouchi', lang: 'French' },
-    { id: '3', name: 'elinam', lang: 'German' },
-    { id: '3', name: 'elinam', lang: 'German' },
-];
+import { auth, db } from '../config/firebase';
+import { collection, onSnapshot, query, limit } from 'firebase/firestore';
+import { useNavigation } from '@react-navigation/native';
 
 export default function HomeScreen() {
     const { user, userProfile } = useAuth();
+    const navigation = useNavigation<any>();
     const streak = userProfile?.learningProgress?.streak || 0;
-    const insets = useSafeAreaInsets();
+    const [learningPartners, setLearningPartners] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch users from Firestore
+    useEffect(() => {
+        if (!user) return;
+
+        const usersQuery = query(collection(db, 'users'), limit(3));
+        const unsubscribe = onSnapshot(usersQuery, (snapshot) => {
+            const fetchedUsers = snapshot.docs
+                .map(doc => doc.data())
+                .filter(u => u.uid !== user.uid); // Exclude current user
+
+            setLearningPartners(fetchedUsers.slice(0, 3)); // Limit to 3
+            setLoading(false);
+        }, (error) => {
+            console.error('Error fetching users:', error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
+
+    // Generate chatId by sorting UIDs alphabetically
+    const getChatId = (otherUserId: string) => {
+        const ids = [user!.uid, otherUserId].sort();
+        return ids.join('_');
+    };
+
+    // Navigate to Chat screen
+    const handleChatPress = (otherUser: any) => {
+        const chatId = getChatId(otherUser.uid);
+        navigation.navigate('Chat', { chatId, otherUser });
+    };
 
     const handleLogout = async () => {
         try {
@@ -51,33 +78,30 @@ export default function HomeScreen() {
                             {/* Learning Partners Card */}
                             <View style={styles.card}>
                                 <Text style={styles.cardTitle}>Your Learning Partners</Text>
-                                {LEARNING_PARTNERS.map(partner => (
-                                    <View key={partner.id} style={styles.partnerItem}>
-                                        <View style={styles.avatar}>
-                                            <Text style={styles.avatarText}>{partner.name[0].toUpperCase()}</Text>
-                                        </View>
-                                        <View style={styles.partnerInfo}>
-                                            <Text style={styles.partnerName}>{partner.name}</Text>
-                                            <Text style={styles.partnerLang}>Practicing {partner.lang}</Text>
-                                        </View>
-                                        <TouchableOpacity style={styles.chatButton}>
-                                            <Text style={styles.chatButtonText}>CHAT</Text>
-                                        </TouchableOpacity>
+                                {loading ? (
+                                    <View style={styles.loadingContainer}>
+                                        <ActivityIndicator size="small" color="#7cc950" />
                                     </View>
-                                ))}
-                            </View>
-
-                            {/* Find Partner Card */}
-                            <View style={styles.card}>
-                                <Text style={styles.cardTitle}>Find a New Partner</Text>
-                                <View style={styles.searchRow}>
-                                    <View style={styles.searchInput}>
-                                        <Text style={styles.searchPlaceholder}>Search by username...</Text>
-                                    </View>
-                                    <TouchableOpacity style={styles.addButton}>
-                                        <Text style={styles.addButtonText}>ADD FRIEND</Text>
-                                    </TouchableOpacity>
-                                </View>
+                                ) : learningPartners.length > 0 ? (
+                                    learningPartners.map(partner => (
+                                        <View key={partner.uid} style={styles.partnerItem}>
+                                            <View style={styles.avatar}>
+                                                <Text style={styles.avatarText}>{partner.displayName?.[0]?.toUpperCase() || '?'}</Text>
+                                            </View>
+                                            <View style={styles.partnerInfo}>
+                                                <Text style={styles.partnerName}>{partner.displayName || 'Unknown'}</Text>
+                                                <Text style={styles.partnerLang}>Practicing {partner.targetLanguage || 'N/A'}</Text>
+                                            </View>
+                                            <TouchableOpacity style={styles.chatButton} onPress={() => handleChatPress(partner)}>
+                                                <Text style={styles.chatButtonText}>CHAT</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    ))
+                                ) : (
+                                    <Text style={styles.emptyPartnersText}>
+                                        No partners yet. Add some friends!
+                                    </Text>
+                                )}
                             </View>
                         </View>
 
@@ -207,6 +231,16 @@ const styles = StyleSheet.create({
         color: '#333',
         marginBottom: 15,
     },
+    loadingContainer: {
+        padding: 20,
+        alignItems: 'center',
+    },
+    emptyPartnersText: {
+        color: '#999',
+        fontSize: 14,
+        textAlign: 'center',
+        paddingVertical: 20,
+    },
     partnerItem: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -249,32 +283,6 @@ const styles = StyleSheet.create({
         borderRadius: 5,
     },
     chatButtonText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    searchRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    searchInput: {
-        flex: 1,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 8,
-        padding: 12,
-        marginRight: 10,
-    },
-    searchPlaceholder: {
-        color: '#999',
-        fontSize: 14,
-    },
-    addButton: {
-        backgroundColor: '#7cc950',
-        paddingHorizontal: 18,
-        paddingVertical: 12,
-        borderRadius: 5,
-    },
-    addButtonText: {
         color: '#fff',
         fontSize: 12,
         fontWeight: 'bold',
