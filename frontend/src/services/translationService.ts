@@ -67,14 +67,30 @@ export async function translateText(
     try {
         // Encode the text for URL
         const encodedText = encodeURIComponent(text);
-        const langPair = `${sourceLang}|${targetLang}`;
 
+        // Method 1: Google Translate (GTX) - More reliable for demos
+        // Note: This is an undocumented public API used by many extensions
+        try {
+            const googleUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodedText}`;
+            const googleResponse = await fetch(googleUrl);
+            if (googleResponse.ok) {
+                const data = await googleResponse.json();
+                // Google returns array of arrays: [[["Hello","Bonjour",...]],...]
+                const result = data[0].map((item: any) => item[0]).join('');
+                if (result) return { translatedText: result };
+            }
+        } catch (e) {
+            console.log('Google Translate failed, falling back to MyMemory', e);
+        }
+
+        // Method 2: MyMemory API (Fallback)
+        const langPair = `${sourceLang}|${targetLang}`;
         const url = `${MYMEMORY_API_URL}?q=${encodedText}&langpair=${langPair}`;
 
         const response = await fetch(url);
 
         if (!response.ok) {
-            console.error('MyMemory API error:', response.status);
+            console.error('Translation API error:', response.status);
             return { translatedText: '', error: 'Translation failed' };
         }
 

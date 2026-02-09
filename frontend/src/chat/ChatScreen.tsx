@@ -11,9 +11,13 @@ import {
     ActivityIndicator
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { ArrowLeft, Send, Paperclip, Camera, Mic } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native'; // Ensure Image is imported for rendering
+import { db, storage } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { translateText, getLanguageCode } from '../services/translationService';
 
@@ -29,6 +33,8 @@ interface Message {
     translation?: string;      // Legacy field (kept for backwards compatibility)
     readBy?: string[];         // Array of user IDs who have read this message
     readAt?: any;              // Timestamp when message was read
+    mediaUrl?: string;         // URL for image/audio
+    mediaType?: 'image' | 'audio'; // Type of media
 }
 
 export default function ChatScreen() {
@@ -41,6 +47,88 @@ export default function ChatScreen() {
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [uploading, setUploading] = useState(false);
+
+    // --- Image Handling ---
+
+    const pickImage = async (source: 'library' | 'camera') => {
+        try {
+            let result;
+            if (source === 'camera') {
+                const permission = await ImagePicker.requestCameraPermissionsAsync();
+                if (permission.status !== 'granted') {
+                    alert('Camera permission is required!');
+                    return;
+                }
+                result = await ImagePicker.launchCameraAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    quality: 0.7,
+                });
+            } else {
+                const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (permission.status !== 'granted') {
+                    alert('Media library permission is required!');
+                    return;
+                }
+                result = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    quality: 0.7,
+                });
+            }
+
+            if (!result.canceled && result.assets && result.assets[0].uri) {
+                await uploadImage(result.assets[0].uri);
+            }
+        } catch (error) {
+            console.error('Error picking image:', error);
+            alert('Failed to pick image');
+        }
+    };
+
+    const uploadImage = async (uri: string) => {
+        if (!chatId) return;
+        setUploading(true);
+        try {
+            const response = await fetch(uri);
+            const blob = await response.blob();
+
+            const filename = `chats/${chatId}/${Date.now()}_image.jpg`;
+            const storageRef = ref(storage, filename);
+
+            await uploadBytes(storageRef, blob);
+            const downloadUrl = await getDownloadURL(storageRef);
+
+            await handleSendMedia(downloadUrl, 'image');
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            alert('Failed to upload image');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleSendMedia = async (url: string, type: 'image' | 'audio') => {
+        if (!user || !chatId) return;
+
+        try {
+            const messagesRef = collection(db, 'chats', chatId, 'messages');
+            await addDoc(messagesRef, {
+                text: type === 'image' ? '📷 Photo' : '🎤 Voice Message',
+                translated: '', // No translation needed for media placeholder
+                shadow: '',
+                mediaUrl: url,
+                mediaType: type,
+                senderNativeLanguage: myNativeLanguageCode,
+                senderTargetLanguage: myTargetLanguageCode,
+                receiverTargetLanguage: otherUserTargetLanguageCode,
+                senderId: user.uid,
+                senderName: user.displayName || 'Unknown',
+                timestamp: serverTimestamp(),
+            });
+        } catch (error) {
+            console.error('Error sending media:', error);
+        }
+    };
     const scrollViewRef = useRef<ScrollView>(null);
 
     // Get language codes for translation
@@ -123,39 +211,57 @@ export default function ChatScreen() {
             // Per documentation (Section 4.5 & 9):
             // - User types in their TARGET language (practicing)
             // - Shadow Bubble shows translation to their NATIVE language (reinforcement)
-            // 
-            // Example: User learning French types "Bonjour"
-            // - Primary Bubble: "Bonjour" (original)
-            // - Shadow Bubble: "Hello" (translated to native English)
 
-            // SHADOW: Translate FROM my target language TO my native language
-            // (Helps ME understand what I said in my native language)
-            const shadowTranslation = await translateText(
+            // IMPROVED LOGIC: Auto-detect if user typed in Native or Target
+            // 1. Try translating assuming they typed in TARGET (Standard Flow)
+            let shadowLink = await translateText(
                 messageText,
-                myTargetLanguageCode,      // FROM: my target language (what I typed in)
-                myNativeLanguageCode       // TO: my native language (for reinforcement)
+                myTargetLanguageCode,      // FROM: Target
+                myNativeLanguageCode       // TO: Native
             );
 
-            // RECEIVER: Translate FOR the other user TO their target language
-            // (Helps THEM practice reading in their target language)
+            // 2. If translation equals original (e.g. typed "Hello" in English), 
+            //    it means they likely typed in NATIVE. Swap direction!
+            if (shadowLink.translatedText.toLowerCase() === messageText.toLowerCase()) {
+                shadowLink = await translateText(
+                    messageText,
+                    myNativeLanguageCode,    // FROM: Native
+                    myTargetLanguageCode     // TO: Target
+                );
+            }
+
+            // 3. Receiver always needs it in THEIR Target Language
+            //    We translate from whatever language we detected the user used
+            const sourceLang = (shadowLink.translatedText.toLowerCase() === messageText.toLowerCase())
+                ? myTargetLanguageCode // Fallback (shouldn't happen if swap worked)
+                : (shadowLink === shadowLink ? myNativeLanguageCode : myTargetLanguageCode); // Simplified: Just use detected source
+
+            // Actually, simplest reliability is translate from Detected Source -> Receiver Target
             const receiverTranslation = await translateText(
                 messageText,
-                myTargetLanguageCode,           // FROM: the language I typed in
-                otherUserTargetLanguageCode     // TO: receiver's target language
+                myNativeLanguageCode,    // Try from Native first (safest bet for correct meaning)
+                otherUserTargetLanguageCode
             );
+
+            // If that failed (same text), try from Target
+            let finalReceiverText = receiverTranslation.translatedText;
+            if (finalReceiverText.toLowerCase() === messageText.toLowerCase()) {
+                const retry = await translateText(
+                    messageText,
+                    myTargetLanguageCode,
+                    otherUserTargetLanguageCode
+                );
+                finalReceiverText = retry.translatedText;
+            }
 
             const messagesRef = collection(db, 'chats', chatId, 'messages');
             await addDoc(messagesRef, {
-                // Original text (what the user typed - in their target language)
+                // Original text
                 text: messageText,
-                // Shadow text - translation to sender's native language (for Shadow Bubble)
-                shadow: shadowTranslation.translatedText || '',
-                // Translated text for receiver (in their target language)
-                translated: receiverTranslation.translatedText || messageText,
-                // Language metadata
-                senderNativeLanguage: myNativeLanguageCode,
-                senderTargetLanguage: myTargetLanguageCode,
-                receiverTargetLanguage: otherUserTargetLanguageCode,
+                // Shadow text (The other language version for ME)
+                shadow: shadowLink.translatedText || '',
+                // Translated text for receiver
+                translated: finalReceiverText || messageText,
                 // Metadata
                 senderId: user.uid,
                 senderName: user.displayName || 'Unknown',
@@ -259,14 +365,37 @@ export default function ChatScreen() {
                     styles.messageBubble,
                     isMyMessage ? styles.myMessageBubble : styles.theirMessageBubble
                 ]}>
-                    <Text style={[
-                        styles.messageText,
-                        isMyMessage ? styles.myMessageText : styles.theirMessageText
-                    ]}>
-                        {/* For MY messages: show original text
-                            For THEIR messages: show translated text (or original if no translation) */}
-                        {isMyMessage ? message.text : (message.translated || message.text)}
-                    </Text>
+                    {/* Media Display */}
+                    {message.mediaUrl && message.mediaType === 'image' && (
+                        <Image
+                            source={{ uri: message.mediaUrl }}
+                            style={styles.chatImage}
+                            resizeMode="cover"
+                        />
+                    )}
+
+                    {/* Text Display */}
+                    {(!message.mediaUrl || (message.text !== '📷 Photo' && message.text !== '🎤 Voice Message')) && (
+                        <View>
+                            <Text style={[
+                                styles.messageText,
+                                isMyMessage ? styles.myMessageText : styles.theirMessageText,
+                                message.mediaUrl ? { marginTop: 8 } : {}
+                            ]}>
+                                {isMyMessage ? message.text : (message.translated || message.text)}
+                            </Text>
+
+                            {/* Read Receipt INSIDE bubble for Sent messages */}
+                            {isMyMessage && (
+                                <Text style={[
+                                    styles.readReceipt,
+                                    isRead ? styles.readReceiptRead : styles.readReceiptSent
+                                ]}>
+                                    {isRead ? ' ✓✓' : ' ✓'}
+                                </Text>
+                            )}
+                        </View>
+                    )}
                 </View>
 
                 {/* Shadow Bubble / Translation Row */}
@@ -275,31 +404,23 @@ export default function ChatScreen() {
                     isMyMessage ? styles.myMetaRow : styles.theirMetaRow
                 ]}>
                     {isMyMessage ? (
-                        /* MY messages: Show Shadow Bubble (native language reinforcement)
-                           Only show if shadow exists, is not empty, and differs from original */
+                        /* MY messages: Show Shadow Bubble (native language reinforcement) */
                         message.shadow && message.shadow.trim() !== '' && message.shadow.toLowerCase() !== message.text.toLowerCase() ? (
-                            <Text style={styles.shadowText}>
-                                {message.shadow}
-                            </Text>
+                            <View style={styles.shadowBubble}>
+                                <Text style={styles.shadowText}>
+                                    {message.shadow}
+                                </Text>
+                            </View>
                         ) : null
                     ) : (
-                        /* THEIR messages: Show original text below translated message
-                           Only show if original differs from what we're displaying */
+                        /* THEIR messages: Show original text in a bubble too */
                         message.text && message.translated && message.text.toLowerCase() !== message.translated.toLowerCase() ? (
-                            <Text style={styles.originalText}>
-                                {message.text}
-                            </Text>
+                            <View style={[styles.shadowBubble, { backgroundColor: '#fff', alignSelf: 'flex-start' }]}>
+                                <Text style={[styles.shadowText, { color: '#666' }]}>
+                                    {message.text}
+                                </Text>
+                            </View>
                         ) : null
-                    )}
-
-                    {/* Read Receipt - only for my messages */}
-                    {isMyMessage && (
-                        <Text style={[
-                            styles.readReceipt,
-                            isRead ? styles.readReceiptRead : styles.readReceiptSent
-                        ]}>
-                            {isRead ? '✓✓' : '✓'}
-                        </Text>
                     )}
                 </View>
             </View>
@@ -312,26 +433,40 @@ export default function ChatScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={0}
         >
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <ArrowLeft color="#7cc950" size={24} />
-                </TouchableOpacity>
-                <View style={styles.headerInfo}>
-                    <Text style={styles.headerTitle}>{otherUser?.displayName || 'Chat'}</Text>
-                    <Text style={styles.headerSubtitle}>
-                        Learning {otherUser?.targetLanguage || 'N/A'}
-                    </Text>
-                </View>
-            </View>
+            {/* WhatsApp-Style Header with Glassmorphism */}
+            <BlurView intensity={80} tint="dark" style={styles.headerBlur}>
+                <View style={styles.header}>
+                    {/* Back Button with Badge */}
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <ArrowLeft color="#fff" size={22} />
+                    </TouchableOpacity>
 
-            {/* Progress Bar */}
-            <View style={styles.progressContainer}>
-                <View style={styles.progressBar}>
-                    <View style={[styles.progressFill, { width: '50%' }]} />
+                    {/* User Info Pill */}
+                    <View style={styles.userPill}>
+                        <Text style={styles.headerTitle} numberOfLines={1}>
+                            {otherUser?.displayName || 'Chat'}
+                        </Text>
+                        <Text style={styles.headerSubtitle}>
+                            Learning {otherUser?.targetLanguage || 'N/A'}
+                        </Text>
+                    </View>
+
+                    {/* User Avatar */}
+                    <View style={styles.headerAvatar}>
+                        <Text style={styles.headerAvatarText}>
+                            {(otherUser?.displayName || 'U')[0].toUpperCase()}
+                        </Text>
+                    </View>
                 </View>
-                <Text style={styles.pointsText}>💎 500</Text>
-            </View>
+
+                {/* Progress Bar inside header */}
+                <View style={styles.progressContainer}>
+                    <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: '50%' }]} />
+                    </View>
+                    <Text style={styles.pointsText}>💎 500</Text>
+                </View>
+            </BlurView>
 
             {/* Messages */}
             <ScrollView
@@ -375,32 +510,67 @@ export default function ChatScreen() {
                 )}
             </ScrollView>
 
-            {/* Input */}
-            <View style={styles.inputContainer}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Type your message here..."
-                    placeholderTextColor="#999"
-                    value={newMessage}
-                    onChangeText={handleTextChange}
-                    multiline
-                    maxLength={500}
-                />
-                <TouchableOpacity
-                    style={[styles.sendButton, (!newMessage.trim() || sending) && styles.sendButtonDisabled]}
-                    onPress={() => {
-                        updateTypingStatus(false);
-                        handleSend();
-                    }}
-                    disabled={!newMessage.trim() || sending}
-                >
-                    {sending ? (
-                        <ActivityIndicator size="small" color="#fff" />
+            {/* WhatsApp-Style Input with Glassmorphism */}
+            <BlurView intensity={60} tint="light" style={styles.inputBlur}>
+                <View style={styles.inputContainer}>
+                    {/* Attachment Button */}
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => pickImage('library')}
+                        disabled={uploading || sending}
+                    >
+                        {uploading ? (
+                            <ActivityIndicator size="small" color="#666" />
+                        ) : (
+                            <Paperclip color="#666" size={22} />
+                        )}
+                    </TouchableOpacity>
+
+                    {/* Message Input Field */}
+                    <View style={styles.inputWrapper}>
+                        <TextInput
+                            style={styles.input}
+                            placeholder={uploading ? "Uploading..." : "Message"}
+                            placeholderTextColor="#999"
+                            value={newMessage}
+                            onChangeText={handleTextChange}
+                            multiline
+                            maxLength={500}
+                            editable={!uploading}
+                        />
+                        {/* Camera inside input */}
+                        <TouchableOpacity
+                            style={styles.cameraButton}
+                            onPress={() => pickImage('camera')}
+                            disabled={uploading || sending}
+                        >
+                            <Camera color="#666" size={20} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Send or Mic Button */}
+                    {newMessage.trim() ? (
+                        <TouchableOpacity
+                            style={[styles.sendButton, sending && styles.sendButtonDisabled]}
+                            onPress={() => {
+                                updateTypingStatus(false);
+                                handleSend();
+                            }}
+                            disabled={sending}
+                        >
+                            {sending ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <Send color="#fff" size={18} />
+                            )}
+                        </TouchableOpacity>
                     ) : (
-                        <Send color="#fff" size={20} />
+                        <TouchableOpacity style={styles.micButton}>
+                            <Mic color="#fff" size={20} />
+                        </TouchableOpacity>
                     )}
-                </TouchableOpacity>
-            </View>
+                </View>
+            </BlurView>
         </KeyboardAvoidingView>
     );
 }
@@ -408,60 +578,88 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#e8efe5', // WhatsApp-like light green background
+    },
+    // Glass Header Container
+    headerBlur: {
+        backgroundColor: 'rgba(26, 42, 58, 0.95)',
+        paddingTop: Platform.OS === 'ios' ? 50 : 10,
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        overflow: 'hidden',
     },
     header: {
-        backgroundColor: '#1a2a3a',
-        paddingVertical: 12,
-        paddingHorizontal: 15,
         flexDirection: 'row',
         alignItems: 'center',
-        borderBottomWidth: 3,
-        borderBottomColor: '#7cc950',
+        paddingVertical: 12,
+        paddingHorizontal: 15,
     },
     backButton: {
-        marginRight: 12,
-        padding: 5,
+        backgroundColor: 'rgba(124, 201, 80, 0.2)',
+        borderRadius: 20,
+        padding: 8,
+        marginRight: 10,
+    },
+    userPill: {
+        flex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 20,
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        marginRight: 10,
+    },
+    headerTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    headerSubtitle: {
+        fontSize: 11,
+        color: 'rgba(255, 255, 255, 0.7)',
+        marginTop: 2,
+    },
+    headerAvatar: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: '#7cc950',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+    },
+    headerAvatarText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
     },
     headerInfo: {
         flex: 1,
     },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#7cc950',
-    },
-    headerSubtitle: {
-        fontSize: 12,
-        color: '#999',
-        marginTop: 2,
-    },
+    // Progress inside header
     progressContainer: {
-        backgroundColor: '#fff',
         paddingHorizontal: 15,
-        paddingVertical: 10,
+        paddingVertical: 8,
         flexDirection: 'row',
         alignItems: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
     },
     progressBar: {
         flex: 1,
-        height: 8,
-        backgroundColor: '#e0e0e0',
-        borderRadius: 4,
+        height: 6,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: 3,
         marginRight: 12,
         overflow: 'hidden',
     },
     progressFill: {
         height: '100%',
         backgroundColor: '#7cc950',
-        borderRadius: 4,
+        borderRadius: 3,
     },
     pointsText: {
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: 'bold',
-        color: '#333',
+        color: '#fff',
     },
     messagesContainer: {
         flex: 1,
@@ -523,9 +721,14 @@ const styles = StyleSheet.create({
         borderBottomLeftRadius: 4,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
         shadowRadius: 2,
         elevation: 2,
+    },
+    chatImage: {
+        width: 200,
+        height: 150,
+        borderRadius: 8,
+        marginBottom: 4,
     },
     messageText: {
         fontSize: 15,
@@ -550,37 +753,63 @@ const styles = StyleSheet.create({
         color: '#666',
         textAlign: 'left',
     },
+    // Input Area Styles
+    inputBlur: {
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+    },
     inputContainer: {
-        backgroundColor: '#fff',
-        paddingHorizontal: 15,
-        paddingVertical: 10,
         flexDirection: 'row',
         alignItems: 'flex-end',
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+    },
+    iconButton: {
+        padding: 10,
+        marginBottom: 2,
+    },
+    inputWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f0f0f0',
+        borderRadius: 25,
+        paddingLeft: 15,
+        paddingRight: 8,
+        marginHorizontal: 5,
+        minHeight: 46,
     },
     input: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 20,
-        paddingHorizontal: 15,
-        paddingVertical: 10,
-        paddingTop: 10,
         fontSize: 15,
         maxHeight: 100,
-        marginRight: 10,
+        paddingVertical: 10,
         color: '#333',
+    },
+    cameraButton: {
+        padding: 8,
+        marginLeft: 5,
     },
     sendButton: {
         backgroundColor: '#7cc950',
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 46,
+        height: 46,
+        borderRadius: 23,
         justifyContent: 'center',
         alignItems: 'center',
     },
     sendButtonDisabled: {
-        backgroundColor: '#ccc',
+        backgroundColor: '#a5d882',
+    },
+    micButton: {
+        backgroundColor: '#7cc950',
+        width: 46,
+        height: 46,
+        borderRadius: 23,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     typingContainer: {
         flexDirection: 'row',
@@ -627,36 +856,52 @@ const styles = StyleSheet.create({
     messageMetaRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 4,
+        marginTop: 2,
         gap: 8,
     },
     myMetaRow: {
         justifyContent: 'flex-end',
+        alignItems: 'flex-start', // Align shadow bubble to end but text inside to start
     },
     theirMetaRow: {
         justifyContent: 'flex-start',
     },
     readReceipt: {
-        fontSize: 12,
+        fontSize: 10,
         fontWeight: 'bold',
+        marginTop: 2,
+        alignSelf: 'flex-end',
     },
     readReceiptSent: {
-        color: '#999',
+        color: 'rgba(255, 255, 255, 0.7)',
     },
     readReceiptRead: {
-        color: '#7cc950',
+        color: '#4fc3f7', // Light blue for read status on green background
     },
-    // Shadow Bubble - shows native language reinforcement for sent messages
+    // Shadow Bubble - styled for visual reinforcement
+    shadowBubble: {
+        backgroundColor: '#e1e1e1', // Darker gray for visibility
+        borderRadius: 12,
+        borderTopRightRadius: 2,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        marginRight: 4,
+        marginTop: 2, // Positive margin to ensure visibility
+        maxWidth: '80%',
+        borderWidth: 1,
+        borderColor: '#ccc',
+    },
     shadowText: {
         fontSize: 12,
-        color: '#666',
+        color: '#444',
         fontStyle: 'italic',
-        marginRight: 8,
     },
     // Original text - shows original message for received messages
     originalText: {
         fontSize: 12,
         color: '#999',
         fontStyle: 'italic',
+        marginLeft: 4,
+        marginTop: 2,
     },
 });

@@ -78,7 +78,8 @@ export default function SignupScreen() {
                 nativeLanguage: '',
                 targetLanguage: '',
                 friends: [],
-                learningProgress: { streak: 0, wordsLearned: 0 }
+                learningProgress: { streak: 0, wordsLearned: 0 },
+                createdAt: new Date(), // Track when user joined
             });
             // Navigation handled automatically by AuthContext
         } catch (error: any) {
