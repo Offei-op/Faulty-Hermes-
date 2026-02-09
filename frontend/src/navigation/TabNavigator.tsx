@@ -1,7 +1,8 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text, Platform } from 'react-native';
 import { Home, MessageSquare, Users, Settings } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
 
 // Screens
 import HomeScreen from '../dashboard/HomeScreen';
@@ -17,9 +18,12 @@ export default function TabNavigator() {
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: styles.tabBar,
-                tabBarActiveTintColor: '#7cc950', // Green accent
-                tabBarInactiveTintColor: '#999',
+                tabBarActiveTintColor: '#7cc950',
+                tabBarInactiveTintColor: '#888',
                 tabBarShowLabel: true,
+                tabBarBackground: () => (
+                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                ),
             }}
         >
             <Tab.Screen
@@ -60,16 +64,21 @@ export default function TabNavigator() {
 
 const styles = StyleSheet.create({
     tabBar: {
-        backgroundColor: '#fff',
-        borderTopColor: '#eee',
-        borderTopWidth: 1,
-        height: 60,
-        paddingBottom: 5,
-        paddingTop: 5,
+        position: 'absolute',
+        bottom: 25, // Push up
+        left: 50,   // Add side spacing
+        right: 50,  // Add side spacing
+        backgroundColor: 'transparent',
+        borderTopWidth: 0,
+        elevation: 10, // Add shadow for floating effect
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 10,
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        height: 65,
+        paddingBottom: 0, // Reset padding
+        paddingTop: 0,
+        borderRadius: 35, // Round edges
+        overflow: 'hidden', // Clip the blur view
     },
 });

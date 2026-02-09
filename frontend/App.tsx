@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/auth/LoginScreen';
 import SignupScreen from './src/auth/SignupScreen';
@@ -50,10 +51,12 @@ function RootNavigator() {
 export default function App() {
   return (
     <AuthProvider>
-      <NavigationContainer>
-        <StatusBar style="dark" />
-        <RootNavigator />
-      </NavigationContainer>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <StatusBar style="dark" />
+          <RootNavigator />
+        </NavigationContainer>
+      </SafeAreaProvider>
     </AuthProvider>
   );
 }

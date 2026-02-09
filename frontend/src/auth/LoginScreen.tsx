@@ -11,6 +11,7 @@ import {
     ScrollView,
     Platform
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
@@ -18,6 +19,8 @@ import { auth } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { useEffect } from 'react';
+import { Mail, Lock } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,6 +30,8 @@ export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+
+    const insets = useSafeAreaInsets();
 
     // Check if Google auth is configured
     const hasGoogleConfig = !!(
@@ -75,39 +80,48 @@ export default function LoginScreen() {
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
+            {/* Header with Glassmorphism - Fixed Position */}
+            <BlurView intensity={30} tint="dark" style={styles.header}>
+                <View style={styles.headerContent}>
+                    <Text style={styles.brand}>FAULTYHERMES</Text>
+                </View>
+            </BlurView>
+
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.brand}>FAULTYHERMES</Text>
-                </View>
 
                 {/* Card */}
                 <View style={styles.card}>
                     <Text style={styles.title}>Welcome back!</Text>
 
                     <Text style={styles.label}>Username:</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Enter your email"
-                        placeholderTextColor="#999"
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                    />
+                    <View style={styles.inputContainer}>
+                        <Mail color="#999" size={20} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Enter your email"
+                            placeholderTextColor="#999"
+                            value={email}
+                            onChangeText={setEmail}
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                        />
+                    </View>
 
                     <Text style={styles.label}>Password:</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Enter your password"
-                        placeholderTextColor="#999"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                    />
+                    <View style={styles.inputContainer}>
+                        <Lock color="#999" size={20} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Enter your password"
+                            placeholderTextColor="#999"
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry
+                        />
+                    </View>
 
                     <TouchableOpacity
                         style={styles.button}
@@ -160,13 +174,31 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
+        justifyContent: 'center',
+        paddingTop: 130, // Push content down below floating header
+        paddingBottom: 30,
     },
     header: {
-        backgroundColor: '#1a2a3a',
-        paddingVertical: 20,
-        paddingHorizontal: 20,
-        borderBottomWidth: 3,
-        borderBottomColor: '#7cc950',
+        position: 'absolute',
+        top: 50,
+        left: 50,
+        right: 50,
+        zIndex: 100,
+        backgroundColor: 'transparent',
+        overflow: 'hidden',
+        borderRadius: 35,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        height: 60,
+    },
+    headerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 15,
     },
     brand: {
         fontSize: 24,
@@ -175,9 +207,9 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     card: {
-        backgroundColor: '#fff',
-        margin: 30,
-        marginTop: 50,
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        marginHorizontal: 30,
+        marginVertical: 20,
         padding: 30,
         borderRadius: 16,
         shadowColor: '#000',
@@ -198,14 +230,21 @@ const styles = StyleSheet.create({
         color: '#666',
         marginBottom: 8,
     },
-    input: {
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: '#fff',
-        color: '#333',
         borderRadius: 8,
-        padding: 15,
-        marginBottom: 20,
         borderWidth: 1,
         borderColor: '#ddd',
+        marginBottom: 20,
+        paddingHorizontal: 12,
+    },
+    input: {
+        flex: 1,
+        color: '#333',
+        paddingVertical: 12,
+        paddingHorizontal: 10,
         fontSize: 16,
     },
     button: {

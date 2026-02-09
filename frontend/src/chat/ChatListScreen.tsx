@@ -5,6 +5,7 @@ import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { BlurView } from 'expo-blur';
 
 export default function ChatListScreen() {
     const [users, setUsers] = useState<any[]>([]);
@@ -46,10 +47,12 @@ export default function ChatListScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.brand}>FAULTYHERMES</Text>
-            </View>
+            {/* Header - Fixed Position */}
+            <BlurView intensity={30} tint="dark" style={styles.header}>
+                <View style={styles.headerContent}>
+                    <Text style={styles.brand}>FAULTYHERMES</Text>
+                </View>
+            </BlurView>
 
             <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
                 <Text style={styles.pageTitle}>Messages</Text>
@@ -93,14 +96,28 @@ const styles = StyleSheet.create({
         backgroundColor: '#f5f5f5',
     },
     header: {
-        backgroundColor: '#1a2a3a',
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        borderBottomWidth: 3,
-        borderBottomColor: '#7cc950',
+        position: 'absolute',
+        top: 50,
+        left: 50,
+        right: 50,
+        zIndex: 100,
+        backgroundColor: 'transparent',
+        overflow: 'hidden',
+        borderRadius: 35,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        height: 60,
+    },
+    headerContent: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     brand: {
-        fontSize: 20,
+        fontSize: 24,
         fontWeight: 'bold',
         color: '#7cc950',
         letterSpacing: 1,
@@ -110,6 +127,7 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         padding: 20,
+        paddingTop: 130,
     },
     pageTitle: {
         fontSize: 24,

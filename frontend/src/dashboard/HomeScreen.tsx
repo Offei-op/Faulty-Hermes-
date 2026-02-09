@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { useAuth } from '../context/AuthContext';
 import { signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
@@ -9,11 +11,13 @@ const LEARNING_PARTNERS = [
     { id: '1', name: 'Henry', lang: 'Spanish' },
     { id: '2', name: 'hendrix_llouchi', lang: 'French' },
     { id: '3', name: 'elinam', lang: 'German' },
+    { id: '3', name: 'elinam', lang: 'German' },
 ];
 
 export default function HomeScreen() {
     const { user, userProfile } = useAuth();
     const streak = userProfile?.learningProgress?.streak || 0;
+    const insets = useSafeAreaInsets();
 
     const handleLogout = async () => {
         try {
@@ -24,102 +28,100 @@ export default function HomeScreen() {
     };
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.brand}>FAULTYHERMES</Text>
-                <View style={styles.headerRight}>
-                    <Text style={styles.headerLink}>DASHBOARD</Text>
-                    <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                        <Text style={styles.logoutText}>LOGOUT</Text>
-                    </TouchableOpacity>
+        <View style={styles.container}>
+            {/* Glassmorphism Header with Brand Logo - Fixed Position */}
+            <BlurView intensity={30} tint="dark" style={styles.header}>
+                <View style={styles.headerContent}>
+                    <Text style={styles.brand}>FAULTYHERMES</Text>
                 </View>
-            </View>
+            </BlurView>
 
-            {/* Main Content */}
-            <View style={styles.mainContent}>
-                {/* Welcome Section */}
-                <View style={styles.welcomeSection}>
-                    <Text style={styles.welcomeTitle}>Welcome back, {userProfile?.displayName || user?.displayName || 'Traveler'}!</Text>
-                    <Text style={styles.welcomeSubtitle}>Pick up where you left off or find a new partner.</Text>
-                </View>
+            <ScrollView contentContainerStyle={styles.content}>
+                {/* Main Content */}
+                <View style={styles.mainContent}>
+                    {/* Welcome Section */}
+                    <View style={styles.welcomeSection}>
+                        <Text style={styles.welcomeTitle}>Welcome back, {userProfile?.displayName || user?.displayName || 'Traveler'}!</Text>
+                        <Text style={styles.welcomeSubtitle}>Pick up where you left off or find a new partner.</Text>
+                    </View>
 
-                <View style={styles.columnsContainer}>
-                    {/* Left Column */}
-                    <View style={styles.leftColumn}>
-                        {/* Learning Partners Card */}
-                        <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Your Learning Partners</Text>
-                            {LEARNING_PARTNERS.map(partner => (
-                                <View key={partner.id} style={styles.partnerItem}>
-                                    <View style={styles.avatar}>
-                                        <Text style={styles.avatarText}>{partner.name[0].toUpperCase()}</Text>
+                    <View style={styles.columnsContainer}>
+                        {/* Left Column */}
+                        <View style={styles.leftColumn}>
+                            {/* Learning Partners Card */}
+                            <View style={styles.card}>
+                                <Text style={styles.cardTitle}>Your Learning Partners</Text>
+                                {LEARNING_PARTNERS.map(partner => (
+                                    <View key={partner.id} style={styles.partnerItem}>
+                                        <View style={styles.avatar}>
+                                            <Text style={styles.avatarText}>{partner.name[0].toUpperCase()}</Text>
+                                        </View>
+                                        <View style={styles.partnerInfo}>
+                                            <Text style={styles.partnerName}>{partner.name}</Text>
+                                            <Text style={styles.partnerLang}>Practicing {partner.lang}</Text>
+                                        </View>
+                                        <TouchableOpacity style={styles.chatButton}>
+                                            <Text style={styles.chatButtonText}>CHAT</Text>
+                                        </TouchableOpacity>
                                     </View>
-                                    <View style={styles.partnerInfo}>
-                                        <Text style={styles.partnerName}>{partner.name}</Text>
-                                        <Text style={styles.partnerLang}>Practicing {partner.lang}</Text>
+                                ))}
+                            </View>
+
+                            {/* Find Partner Card */}
+                            <View style={styles.card}>
+                                <Text style={styles.cardTitle}>Find a New Partner</Text>
+                                <View style={styles.searchRow}>
+                                    <View style={styles.searchInput}>
+                                        <Text style={styles.searchPlaceholder}>Search by username...</Text>
                                     </View>
-                                    <TouchableOpacity style={styles.chatButton}>
-                                        <Text style={styles.chatButtonText}>CHAT</Text>
+                                    <TouchableOpacity style={styles.addButton}>
+                                        <Text style={styles.addButtonText}>ADD FRIEND</Text>
                                     </TouchableOpacity>
                                 </View>
-                            ))}
+                            </View>
                         </View>
 
-                        {/* Find Partner Card */}
-                        <View style={styles.card}>
-                            <Text style={styles.cardTitle}>Find a New Partner</Text>
-                            <View style={styles.searchRow}>
-                                <View style={styles.searchInput}>
-                                    <Text style={styles.searchPlaceholder}>Search by username...</Text>
+                        {/* Right Column */}
+                        <View style={styles.rightColumn}>
+                            {/* Profile Card */}
+                            <View style={styles.profileCard}>
+                                <View style={styles.profileAvatar}>
+                                    <Text style={styles.profileAvatarText}>
+                                        {(userProfile?.displayName || user?.displayName || 'U')[0].toUpperCase()}
+                                    </Text>
                                 </View>
-                                <TouchableOpacity style={styles.addButton}>
-                                    <Text style={styles.addButtonText}>ADD FRIEND</Text>
-                                </TouchableOpacity>
+                                <Text style={styles.profileName}>{userProfile?.displayName || user?.displayName || 'User'}</Text>
+                                <Text style={styles.profileLanguage}>Target: {userProfile?.targetLanguage || 'Not set'}</Text>
                             </View>
-                        </View>
-                    </View>
 
-                    {/* Right Column */}
-                    <View style={styles.rightColumn}>
-                        {/* Profile Card */}
-                        <View style={styles.profileCard}>
-                            <View style={styles.profileAvatar}>
-                                <Text style={styles.profileAvatarText}>
-                                    {(userProfile?.displayName || user?.displayName || 'U')[0].toUpperCase()}
-                                </Text>
+                            {/* Streak Card */}
+                            <View style={styles.streakCard}>
+                                <Text style={styles.streakLabel}>STREAK</Text>
+                                <View style={styles.streakRow}>
+                                    <Text style={styles.streakEmoji}>🔥</Text>
+                                    <Text style={styles.streakCount}>{streak} Days</Text>
+                                </View>
                             </View>
-                            <Text style={styles.profileName}>{userProfile?.displayName || user?.displayName || 'User'}</Text>
-                            <Text style={styles.profileLanguage}>Target: {userProfile?.targetLanguage || 'Not set'}</Text>
-                        </View>
 
-                        {/* Streak Card */}
-                        <View style={styles.streakCard}>
-                            <Text style={styles.streakLabel}>STREAK</Text>
-                            <View style={styles.streakRow}>
-                                <Text style={styles.streakEmoji}>🔥</Text>
-                                <Text style={styles.streakCount}>{streak} Days</Text>
-                            </View>
-                        </View>
-
-                        {/* Achievements Card */}
-                        <View style={styles.card}>
-                            <View style={styles.achievementHeader}>
-                                <Text style={styles.achievementEmoji}>🏆</Text>
-                                <Text style={styles.achievementTitle}>Achievements</Text>
-                            </View>
-                            <View style={styles.achievementItem}>
-                                <Text style={styles.achievementStar}>⭐</Text>
-                                <Text style={styles.achievementName}>First Conversation</Text>
-                            </View>
-                            <View style={styles.achievementProgress}>
-                                <View style={styles.achievementProgressBar} />
+                            {/* Achievements Card */}
+                            <View style={styles.card}>
+                                <View style={styles.achievementHeader}>
+                                    <Text style={styles.achievementEmoji}>🏆</Text>
+                                    <Text style={styles.achievementTitle}>Achievements</Text>
+                                </View>
+                                <View style={styles.achievementItem}>
+                                    <Text style={styles.achievementStar}>⭐</Text>
+                                    <Text style={styles.achievementName}>First Conversation</Text>
+                                </View>
+                                <View style={styles.achievementProgress}>
+                                    <View style={styles.achievementProgressBar} />
+                                </View>
                             </View>
                         </View>
                     </View>
                 </View>
-            </View>
-        </ScrollView>
+            </ScrollView>
+        </View>
     );
 }
 
@@ -132,44 +134,35 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
     header: {
-        backgroundColor: '#1a2a3a',
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        borderBottomWidth: 3,
-        borderBottomColor: '#7cc950',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+        position: 'absolute',
+        top: 50,
+        left: 50,
+        right: 50,
+        zIndex: 100,
+        backgroundColor: 'transparent',
+        overflow: 'hidden',
+        borderRadius: 35,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        height: 60,
+    },
+    headerContent: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
     },
     brand: {
-        fontSize: 20,
+        fontSize: 24,
         fontWeight: 'bold',
         color: '#7cc950',
         letterSpacing: 1,
     },
-    headerRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    headerLink: {
-        color: '#fff',
-        fontSize: 12,
-        marginRight: 15,
-        fontWeight: '600',
-    },
-    logoutButton: {
-        backgroundColor: '#7cc950',
-        paddingHorizontal: 15,
-        paddingVertical: 8,
-        borderRadius: 5,
-    },
-    logoutText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
     mainContent: {
         padding: 20,
+        marginTop: 120,
     },
     welcomeSection: {
         marginBottom: 25,

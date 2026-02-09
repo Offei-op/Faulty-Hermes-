@@ -11,6 +11,8 @@ import {
     ScrollView,
     Platform
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
@@ -29,6 +31,7 @@ export default function SignupScreen() {
     const [password, setPassword] = useState('');
     const [displayName, setDisplayName] = useState('');
     const [loading, setLoading] = useState(false);
+    const insets = useSafeAreaInsets();
 
     // Check if Google auth is configured
     const hasGoogleConfig = !!(
@@ -90,14 +93,17 @@ export default function SignupScreen() {
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
+            {/* Header with Glassmorphism - Fixed Position */}
+            <BlurView intensity={30} tint="dark" style={styles.header}>
+                <View style={styles.headerContent}>
+                    <Text style={styles.brand}>FAULTYHERMES</Text>
+                </View>
+            </BlurView>
+
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.brand}>FAULTYHERMES</Text>
-                </View>
 
                 {/* Card */}
                 <View style={styles.card}>
@@ -184,14 +190,29 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
+        paddingTop: 130, // Push content down below floating header
         paddingBottom: 30,
     },
     header: {
-        backgroundColor: '#1a2a3a',
-        paddingVertical: 20,
-        paddingHorizontal: 20,
-        borderBottomWidth: 3,
-        borderBottomColor: '#7cc950',
+        position: 'absolute',
+        top: 50,
+        left: 50,
+        right: 50,
+        zIndex: 100,
+        backgroundColor: 'transparent',
+        overflow: 'hidden',
+        borderRadius: 35,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        height: 60,
+    },
+    headerContent: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     brand: {
         fontSize: 24,
