@@ -94,7 +94,7 @@ export default function SignupScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             {/* Header with Glassmorphism - Fixed Position */}
-            <BlurView intensity={30} tint="dark" style={styles.header}>
+            <BlurView intensity={10} tint="dark" style={styles.header}>
                 <View style={styles.headerContent}>
                     <Text style={styles.brand}>FAULTYHERMES</Text>
                 </View>
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     },
     header: {
         position: 'absolute',
-        top: 50,
+        top: 100,
         left: 50,
         right: 50,
         zIndex: 100,
@@ -222,9 +222,9 @@ const styles = StyleSheet.create({
     },
     card: {
         backgroundColor: '#fff',
-        margin: 20,
-        marginTop: 30,
-        padding: 25,
+        margin: 20, // Consistent with Login
+        marginTop: 30, // Keep space from header area
+        padding: 35, // Increased size
         borderRadius: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },

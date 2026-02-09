@@ -22,7 +22,7 @@ export default function TabNavigator() {
                 tabBarInactiveTintColor: '#888',
                 tabBarShowLabel: true,
                 tabBarBackground: () => (
-                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                    <BlurView intensity={10} tint="dark" style={StyleSheet.absoluteFill} />
                 ),
             }}
         >

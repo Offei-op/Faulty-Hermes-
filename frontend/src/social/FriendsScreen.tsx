@@ -68,7 +68,7 @@ export default function FriendsScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             {/* Header - Fixed Position */}
-            <BlurView intensity={30} tint="dark" style={styles.header}>
+            <BlurView intensity={10} tint="dark" style={styles.header}>
                 <View style={styles.headerContent}>
                     <Text style={styles.brand}>FAULTYHERMES</Text>
                 </View>

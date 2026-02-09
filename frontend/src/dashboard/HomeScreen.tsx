@@ -57,7 +57,7 @@ export default function HomeScreen() {
     return (
         <View style={styles.container}>
             {/* Glassmorphism Header with Brand Logo - Fixed Position */}
-            <BlurView intensity={30} tint="dark" style={styles.header}>
+            <BlurView intensity={10} tint="dark" style={styles.header}>
                 <View style={styles.headerContent}>
                     <Text style={styles.brand}>FAULTYHERMES</Text>
                 </View>

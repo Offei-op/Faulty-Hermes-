@@ -81,7 +81,7 @@ export default function LoginScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             {/* Header with Glassmorphism - Fixed Position */}
-            <BlurView intensity={30} tint="dark" style={styles.header}>
+            <BlurView intensity={10} tint="dark" style={styles.header}>
                 <View style={styles.headerContent}>
                     <Text style={styles.brand}>FAULTYHERMES</Text>
                 </View>
@@ -175,12 +175,12 @@ const styles = StyleSheet.create({
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'center',
-        paddingTop: 130, // Push content down below floating header
+        paddingTop: 130, // Space for floating header
         paddingBottom: 30,
     },
     header: {
         position: 'absolute',
-        top: 50,
+        top: 100,
         left: 50,
         right: 50,
         zIndex: 100,
@@ -208,9 +208,9 @@ const styles = StyleSheet.create({
     },
     card: {
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        marginHorizontal: 30,
+        marginHorizontal: 20, // Reduced margin for wider card
         marginVertical: 20,
-        padding: 30,
+        padding: 35, // Increased padding for spaciousness
         borderRadius: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
