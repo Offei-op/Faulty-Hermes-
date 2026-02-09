@@ -103,6 +103,19 @@ export default function HomeScreen() {
                                     </Text>
                                 )}
                             </View>
+
+                            {/* Find Partner Card */}
+                            <View style={styles.card}>
+                                <Text style={styles.cardTitle}>Find a New Partner</Text>
+                                <View style={styles.searchRow}>
+                                    <View style={styles.searchInput}>
+                                        <Text style={styles.searchPlaceholder}>Search by username...</Text>
+                                    </View>
+                                    <TouchableOpacity style={styles.addButton}>
+                                        <Text style={styles.addButtonText}>ADD FRIEND</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
                         </View>
 
                         {/* Right Column */}
@@ -389,5 +402,37 @@ const styles = StyleSheet.create({
         height: 6,
         backgroundColor: '#7cc950',
         borderRadius: 3,
+    },
+    // Added missing styles for Find Partner Card
+    searchRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    searchInput: {
+        flex: 1,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        height: 40,
+        justifyContent: 'center',
+        marginRight: 10,
+    },
+    searchPlaceholder: {
+        color: '#999',
+        fontSize: 14,
+    },
+    addButton: {
+        backgroundColor: '#7cc950',
+        paddingHorizontal: 15,
+        height: 40,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    addButtonText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
     },
 });
